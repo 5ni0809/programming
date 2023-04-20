@@ -1,0 +1,198 @@
+#include <iostream>
+#include <cstdlib>
+using namespace std;
+
+class Shop {
+private:
+	int Clothes, Pants, Skirt, Shoes, Hat;
+public:
+	Shop(void) {
+		Clothes = 200;
+		Pants = 200;
+		Skirt = 100; 
+		Shoes = 50;
+		Hat = 50;
+	}
+	void Left(void) {
+		cout << "庫存:" << endl;
+		cout << "衣服：" << Clothes << " 件\n褲子：" << Pants << " 件\n裙子：" 
+			<< Skirt << " 件\n鞋子：" << Shoes << " 件\n帽子：" << Hat << " 件\n";
+	}
+	int Buy(int item, int price, int n, int money) {
+		int left;
+		switch (item)
+		{
+		case 1:
+			left = Clothes;
+			break;
+		case 2:
+			left = Pants;
+			break;
+		case 3:
+			left = Skirt;
+			break;
+		case 4:
+			left = Shoes;
+			break; 
+		case 5:
+			left = Hat;
+			break;
+		}
+		if (price*n > money) {
+			cout << "刷卡失敗，已超過信用額度" << endl;
+			return(0);
+		}
+		else if (n > left) {
+			cout << "庫存不足，已訂購 " << left << "件" << endl;
+			cout << "共" << price*left << "元" << endl;
+			switch (item)
+			{
+			case 1:
+				Clothes = 0;
+				break;
+			case 2:
+				Pants = 0;
+				break;
+			case 3:
+				Skirt = 0;
+				break;
+			case 4:
+				Shoes = 0;
+				break;
+			case 5:
+				Hat = 0;
+				break;
+			}
+			return(price*left);
+		}
+		else {
+			cout << "交易成功，已訂購 " << n << "件" << endl;
+			cout << "總共" << price*n << "元" << endl;
+			switch (item)
+			{
+			case 1:
+				Clothes -= n;
+				break;
+			case 2:
+				Pants -= n;
+				break;
+			case 3:
+				Skirt -= n;
+				break;
+			case 4:
+				Shoes -= n;
+				break;
+			case 5:
+				Hat -= n;
+				break;
+			}
+			return(price*n);
+		}
+	}
+};
+class Product {
+private:
+	int Cp, Pp, Skp, Shp, Hp;
+public:
+	Product(void) {
+		Cp = 500; 
+		Pp = 500;
+		Skp = 300;
+		Shp = 400; 
+		Hp = 200;
+	}
+	int Price(int item) {
+		switch (item)
+		{
+		case 1:
+			return(Cp);
+		case 2:
+			return(Pp);
+		case 3:
+			return(Skp);
+		case 4:
+			return(Shp);
+		case 5:
+			return(Hp);
+		}
+	}
+};
+class Customer {
+private:
+	int money;
+public:
+	Customer(void) {
+		money = 20000;
+	}
+	void credit(int i) {
+		cout << "信用卡餘額" << money << "元" << endl;
+	}
+	int card(void) {
+		return(money);
+	}
+	void Less(int n) {
+		money -= n;
+	}
+};
+int main(void) {
+	Shop shop;
+	Product product;
+	int cust = 0, choose, item, n;
+	bool custYes = 1, leave = 0, chseYes = 0;
+	while (custYes == 1) {
+		Customer *c = new Customer;
+		cust++;
+		while (leave == 0) {
+			cout << "顧客" << cust << " 請選擇 :\n";
+			cout << "(1)購買\n(2)查詢庫存\n(3)查詢餘額\n(4)離開\n";
+			cin >> choose;
+			chseYes = 0;
+			system("cls");
+			switch (choose) {
+			case 1:
+				while (chseYes == 0) {
+					chseYes = 1;
+					cout << "(1)衣服\n(2)褲子\n(3)裙子\n(4)鞋子\n(5)帽子\n";
+					cout << "請輸入：";
+					cin >> item;
+					system("cls");
+					if (item > 5 || item < 1) {
+						chseYes = 0;
+						cout << "輸入錯誤,請重新輸入" << endl;
+					}
+					else
+					{
+						cout << "請輸入要購買的數量：";
+						cin >> n;
+						system("cls");
+						c->Less(shop.Buy(item, product.Price(item), n, c->card()));
+					}
+				}
+				break;
+			case 2:
+				shop.Left();
+				break;
+			case 3:
+				c->credit(cust);
+				break;
+			case 4:
+				delete(c);
+				leave = 1;
+				break;
+			default:
+				cout << "輸入錯誤,請重新輸入" << endl;
+				break;
+			}
+		}
+		system("cls");
+		cout << "顧客" << cust << "離開" << endl;
+		cout << "下一位顧客" << endl << " (1)是" << endl << " (2)否" << endl;
+		cin >> choose;
+		leave = 0;
+		if (choose == 2)
+			custYes = 0;
+		system("cls");
+	}
+	system("pause");
+	return (0);
+}
