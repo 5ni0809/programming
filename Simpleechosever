@@ -1,0 +1,89 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <winsock.h>
+#define BUF_SIZE 1024
+int main(int argc, int *argv[])
+{
+	int sockfd;  //伺服器socket
+	int new_fd;  //接受連線socket
+	int numberbytes;
+	struct sockaddr_in my_addr;
+	struct sockaddr_in client_addr;
+	int    sin_size, ret;
+	char   buf[BUFSIZ], *client_IP;
+	WSADATA wsd;
+	ret = WSAStartup(MAKEWORD(2, 2), &wsd);
+	if (ret != 0)
+	{
+		printf("Winsock Startup failed\n");
+		return -1;
+	}
+	//以上是啟動winsock系統呼叫環境
+	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sockfd == INVALID_SOCKET)
+	{
+		printf("Socket failed!\n");
+		WSACleanup();
+		return -1;
+	}
+	//以上是取得合法Socket ID
+	my_addr.sin_family = AF_INET;
+	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);//本機所有網卡的IP都接受連線
+	my_addr.sin_port = htons((short)7);
+	sin_size = sizeof(my_addr);
+	//以上是伺服器的IP與Port設定
+	ret = bind(sockfd, (struct sockaddr *)&my_addr, sin_size);
+	if (ret == -1)
+	{
+		printf("Binding failed!\n");
+		closesocket(sockfd);
+		WSACleanup();
+		return -1;
+	}
+	//以上是綁定伺服器IP位址與Port給Socket ID:sockfd
+	ret = listen(sockfd, 10);//sockfd進入監聽狀態
+	if (ret == -1)
+	{
+		printf("Listening failed!\n");
+		closesocket(sockfd);
+		WSACleanup();
+		return -1;
+	}
+	printf("Sever is running.....\n");
+	{
+		new_fd = accept(sockfd, (struct sockaddr *)&client_addr, &sin_size);
+		if (new_fd == -1)
+		{
+			printf("Accepting failed!\n");
+			closesocket(sockfd);
+			WSACleanup();
+			return -1;
+		}
+		client_IP = inet_ntoa(client_addr.sin_addr);
+		printf("Client: %s is connected\n", client_IP);
+		//以上是接受並取出已連線的socket id (new_fd)
+		while (1)
+		{
+			numberbytes = recv(new_fd, buf, BUFSIZ, 0);
+			if (numberbytes <= 0) break;//連線斷或EOF結束回圈
+			buf[numberbytes] = '\0';
+			printf("Received:%s\n ", buf);
+			printf("#");
+			//以上是伺服器接收資料
+			memset(buf, 0, BUF_SIZE);
+			fgets(buf, BUF_SIZE, stdin);
+			numberbytes = send(new_fd, buf, strlen(buf), 0);
+			if (numberbytes <= 0) break;//連線斷或EOF結束回圈
+			printf("Echo %d bytes", numberbytes);
+			printf("\n%s\n", buf);
+		}
+		//以上迴圈是伺服器不停與client送收資料
+		printf("Waiting for another connection.....!\n");
+	}//While(1)外
+	system("pause");
+	closesocket(sockfd);
+	closesocket(new_fd);
+	WSACleanup();
+	return 0;
+
+}
