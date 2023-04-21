@@ -1,0 +1,32 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<process.h>
+#include<windows.h>
+void abc(void *param);
+int main()   //primary thread(主執行緒)
+{
+	int i;
+	_beginthread(abc, 0, "張三");
+	_beginthread(abc, 0, "李四");
+	_beginthread(abc, 0, "王五");
+	_beginthread(abc, 0, "趙六");
+	for (i = 0; i < 10; i++)
+	{
+		printf("I’m 主執行緒 i=%d\n", i);
+		Sleep(100);//延遲1秒不做事
+	}
+	printf("主執行緒已結束!\n");
+	getchar();
+	return 0;
+}
+void abc(void *param)
+{
+	int i;
+	const char *p = (const char*)param;
+	for (i = 0; i < 50; i++)
+	{
+		printf("I’m %s i=%d\n", p, i);
+		Sleep(100);//延遲1秒不做事
+	}
+	printf("%s 已結束\n", p);
+}
