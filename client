@@ -1,0 +1,86 @@
+#define	BUF_SZIE	64
+#include "winsock.h"
+#include <stdio.h>
+
+
+int main(int argc, char* argv[])
+{
+
+	WSADATA			wsd;			
+	SOCKET			sHost;			
+	SOCKADDR_IN		servAddr;		
+	char			buf[BUF_SZIE], input[BUF_SZIE];	
+	int				retVal;			
+	int             nServAddlen;
+	
+    if (WSAStartup(MAKEWORD(2,2), &wsd) != 0)
+	{
+		printf("WSAStartup failed!\n");
+		return -1;
+	}
+
+    sHost = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);	
+	if(INVALID_SOCKET == sHost)
+	{
+		printf("socket failed!\n");
+		WSACleanup();//
+		return  -1;
+	}
+
+	if (argc ==3)
+	{
+      servAddr.sin_family =AF_INET;
+	  servAddr.sin_addr.s_addr = inet_addr(argv[1]);
+	  servAddr.sin_port = htons((short) atoi(argv[2]));
+	  nServAddlen  = sizeof(servAddr);
+	}
+	else
+	{
+	  servAddr.sin_family =AF_INET;
+	  servAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	  servAddr.sin_port = htons((short) 2323);
+	  nServAddlen  = sizeof(servAddr);
+	}
+	
+
+	retVal=connect(sHost,(LPSOCKADDR)&servAddr, sizeof(servAddr));	
+	if(SOCKET_ERROR == retVal)
+	{
+		printf("connect failed!\n");	
+		closesocket(sHost);	//
+		WSACleanup();		//
+		return -1;
+	}
+   while(1)
+   {
+	 ZeroMemory(buf, BUF_SZIE);
+	 gets(input);
+	 if(strcmp("END",input) ==0 || strcmp("E",input) ==0) break;
+	 strcpy(buf, input);
+	 printf("sent:%s\n",buf);
+	 retVal = send(sHost, buf, strlen(buf), 0);
+	 if (SOCKET_ERROR == retVal)
+	 {
+		printf("send failed!\n");
+		closesocket(sHost);	//
+		WSACleanup();		//
+		return -1;
+	 }
+	ZeroMemory(buf, BUF_SZIE);
+	retVal = recv(sHost, buf, BUF_SZIE, 0);
+	if (SOCKET_ERROR == retVal)
+	{
+		printf("recv failed!\n");
+		closesocket(sHost);	//
+		WSACleanup();		//
+		return -1;
+	}
+    printf("received: %s\n",buf);
+   }
+	
+   	closesocket(sHost);	//
+	WSACleanup();		//
+	return 0;
+		
+}
+
