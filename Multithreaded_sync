@@ -1,0 +1,27 @@
+#include <process.h>
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+void loop(void *param)
+{
+	int *quit = (int *)param;
+	int i = 0;
+	while ((*quit)==0)
+	{
+		printf("i=%d\n", i++);
+		Sleep(100);
+	}
+	printf("Loop has finished!\n");
+}
+int main(void)//程式進入點,也是主執行緒開始的地方
+{
+	HANDLE handle;//用來表示執行緒的代號
+	int quit = 0;
+	handle = (HANDLE)_beginthread(loop, 0, &quit);//回傳一個執行緒代號
+	getchar();//主執行緒在此先暫停,等使用者按任意鍵開始執行
+	quit = 1;
+	WaitForSingleObject(handle, INFINITE);//主執行緒在此無窮等待另一執行緒結束
+	printf("Press enter to exit...");
+	getchar();
+	return 0;
+}
