@@ -1,0 +1,85 @@
+#define BUF_SIZE   128
+#include <winsock.h>  //winsock 連網專用
+#include <stdio.h>
+int main(int argc, char *argv[])
+{
+	WSADATA      wsd; //winsock 連網專用
+	int          sHost;
+	SOCKADDR_IN  servAddr;  //winsock 連網專用
+	char         buf[BUF_SIZE], ip[16];
+	int          retval;
+	int          addr_len;
+	int          flag;
+
+	//以下是啟動winsock連網環境的程式碼
+	if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
+	{
+		printf("WSAStarup failed!\n");
+		WSACleanup();
+		return -1;
+	}
+	//以下程式碼是向系統要求可用socket編號
+	sHost = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sHost == -1)
+	{
+		printf("Socket requesting failed!\n");
+		WSACleanup();
+		return -1;
+	}
+	printf("Please input server IP:");
+	fgets(ip, 16, stdin);
+	//以下程式碼是指定欲連線的server方之位址與port number資訊
+	servAddr.sin_family      = AF_INET;
+	servAddr.sin_port        = htons((short)7);
+	servAddr.sin_addr.s_addr = inet_addr(ip);
+	addr_len = sizeof(servAddr);
+	//以下程式碼是對server進行連線
+	retval = connect(sHost,(struct sockaddr *)&servAddr,addr_len);
+	if (retval == -1)
+	{
+		printf("Connection failed! \n");
+		closesocket(sHost);
+		WSACleanup();
+		return -1;
+	}
+	printf("Connection is successful!\n");
+	printf("Please key in your message. Press E or END to exit.\n");
+	fflush(stdin);
+	flag = 1;
+	while (flag)
+	{
+		printf(">");
+		//以下程式碼準備緩衝區傳送資料
+		memset(buf, 0, BUF_SIZE);
+		fgets(buf, BUF_SIZE, stdin);
+		flag = 1;
+		flag = strcmp(buf, "END");
+		if (flag == 0) break;
+		flag = buf[0] == 'E' ? 0 : 1;
+		if (flag == 0) break;
+		//以下程式碼傳送緩衝區資料
+		retval = send(sHost, buf, strlen(buf), 0);
+		if (retval == -1)
+		{
+			printf("Sending failed! \n");
+			closesocket(sHost);
+			WSACleanup();
+			return -1;
+		}
+		//以下程式碼準備緩衝區接收資料
+		memset(buf, 0, BUF_SIZE);
+		retval = recv(sHost, buf, BUF_SIZE, 0);
+		if (retval == -1)
+		{
+			printf("Receiving failed! \n");
+			closesocket(sHost);
+			WSACleanup();
+			return -1;
+		}
+		printf("Received: %s\n", buf);
+	}
+	
+	closesocket(sHost);
+	WSACleanup();
+	return 0;
+}
