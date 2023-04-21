@@ -1,0 +1,98 @@
+#include <iostream>
+#include <conio.h>
+#include <winsock.h>
+using namespace std;
+#define BUF_SIZE 128
+
+int main(int argc, char *argv[])
+{
+	WSADATA wsd;			//winsock 連網專用
+	int sHost;
+	SOCKADDR_IN servAddr;	//winsock 連網專用
+	char buf[BUF_SIZE], bufout[BUF_SIZE], IPAddress[20];
+	int retval;
+	int addr_len, portNum, flag = 1;
+	cout << "請輸入要連線的IP:";
+	cin >> IPAddress;
+	cout << "請輸入要連線的port number:";
+	cin >> portNum;
+
+	while (1)
+	{
+		//以下是啟動winsock連網環境的程式碼
+		if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
+		{
+			cout << "WSAStarup failed!\n";
+			WSACleanup();
+			cout << "Press any key to continue";
+			getch();
+			return -1;
+		}
+		//以下程式碼是項系統邀情可用的socket編號
+		sHost = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (sHost == -1)
+		{
+			cout << "Socket requesting failed!\n";
+			WSACleanup();
+			cout << "Press any key to continue";
+			getch();
+			return -1;
+		}
+		//以下的程式碼指定欲連線的server方位址與port number
+		servAddr.sin_family = AF_INET;
+		servAddr.sin_port = htons((short)portNum);
+		servAddr.sin_addr.s_addr = inet_addr(IPAddress);
+		addr_len = sizeof(servAddr);
+		//以下程式碼是對server進行連線
+		retval = connect(sHost, (struct sockaddr *)&servAddr, addr_len);
+		if (retval == -1)
+		{
+			cout << "Connection failed! \n";
+			closesocket(sHost);
+			WSACleanup();
+			cout << "Press any key to continue";
+			getch();
+			return -1;
+		}
+		while (flag)
+		{
+			printf(">");
+			//以下程式碼準備緩衝區傳送資料
+			memset(buf, 0, BUF_SIZE);
+			fgets(buf, BUF_SIZE, stdin);
+			flag = 1;
+			flag = strcmp(buf, "END");
+			if (flag == 0)break;
+			flag = buf[0] == 'E' ? 0 : 1;
+			if (flag == 0)break;
+
+			//以下程式碼傳送緩衝區資料
+
+			retval = send(sHost, buf, strlen(buf), 0);
+			if (retval == -1)
+			{
+				cout << "Sending failed!\n";
+				closesocket(sHost);
+				WSACleanup();
+				return -1;
+			}
+			//以下程式碼準備緩衝區接收資料
+			memset(buf, 0, BUF_SIZE);
+			retval = recv(sHost, buf, BUF_SIZE, 0);
+			if (retval == -1)
+			{
+				cout << "Sending failed!\n";
+				closesocket(sHost);
+				WSACleanup();
+				return -1;
+			}
+			cout << "Received: " << buf << endl;
+			closesocket(sHost);
+			WSACleanup();
+		}
+
+		cout << "Press any key to continue";
+		getch();
+		return 0;
+	}
+}
