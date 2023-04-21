@@ -1,0 +1,98 @@
+//  2017/11/20  資工二甲  40543101  吳婕寧
+
+#include <sys/types.h>
+#include <winsock2.h>
+#include <WS2tcpip.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define MAX_LEN 1024
+int main(int argc, char *argv[])	//char argv字串陣列，請注意命令列參數的使用
+{
+	int sock;
+	int passcode, r, j;
+	char p[MAX_LEN + 1];
+	struct sockaddr_in mc_addr;	//winsock 位址結構
+	struct sockaddr_in from_addr;	//記錄傳送者的IP
+	struct ip_mreq mc_req;		//群播要求結構
+	char *mc_addr_str;
+	unsigned short mc_port;
+	char recv_str[MAX_LEN + 1];
+	int recv_len, from_len;
+	int flag_on = 1;
+	
+	WSADATA wsaData;
+
+	if (argc != 3)
+	{
+		fprintf(stderr, "Using : %s <Multicast IP> <Multicast Port>", argv[0]);	//顯示使用方法
+		exit(1);	//結束程式
+	}
+	mc_addr_str = argv[1];
+	mc_port = atoi(argv[2]);
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+	{
+		fprintf(stderr, "WSAStartup() failed");
+		exit(1);
+	}
+	if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+	{
+		fprintf(stderr, "socket failed");
+		exit(1);
+	}
+	if ((setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+		(char*)&flag_on, sizeof(flag_on))) < 0)
+	{
+		fprintf(stderr, "setsockopt() failed");
+		exit(1);
+	}
+	memset(&mc_addr, 0, sizeof(mc_addr));
+	mc_addr.sin_family = AF_INET;
+	mc_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	mc_addr.sin_port = htons(mc_port);
+
+	if ((bind(sock, (struct sockaddr *)&mc_addr, sizeof(mc_addr))) < 0)
+	{
+		fprintf(stderr, "bind() failed");
+		exit(1);
+	}
+	mc_req.imr_multiaddr.s_addr = inet_addr(mc_addr_str);//指定群播IP
+	mc_req.imr_interface.s_addr = htonl(INADDR_ANY);	//指定群播介面
+	if ((setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mc_req, sizeof(mc_req))) < 0)
+	{
+		fprintf(stderr, "setsockopt() for ADD_MEMBERSHIP failed");
+		exit(1);
+	}//完成加入群組的宣告訊息傳送給路由去(IGMP)
+
+	printf("用戶端請輸入通行碼:");
+	scanf("%s", p);
+	passcode = strlen(p);
+	for (;;)	//接收訊息的無窮迴圈
+	{
+		memset(recv_str, 0, sizeof(recv_str));
+		from_len = sizeof(from_addr);
+		memset(&from_addr, 0, from_len);
+		if ((recv_len = recvfrom(sock, recv_str, MAX_LEN, 0,
+			(struct sockaddr*)&from_addr, &from_len)) < 0)
+		{
+			fprintf(stderr, "recvfrom() failed");
+			exit(1);
+		}
+		r = 1;
+		for (int i = 0; i < passcode; i++) {
+			if (recv_str[i] != p[i])
+				r = 0;
+		}
+		if (r == 1) {
+			printf("%s：", inet_ntoa(from_addr.sin_addr));
+			for (int i = passcode; i < strlen(recv_str); i++)
+				printf("%c", recv_str[i]);
+		}
+	}
+	//離開群組的宣告訊息傳送給路由去(IGMP)
+	if ((setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void*)&mc_req, sizeof(mc_req))) < 0)
+	{
+		fprintf(stderr, "setsockopt for DROP_MEMBERSHIP FAILED");
+		exit(1);
+	}
+}
