@@ -1,0 +1,187 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#define BUFSIZE        32768
+#define MSGSIZE        1024
+#define DEFAULT_PORT   3101
+
+/*顯示路由表的指令*/
+#ifdef_linux
+#define COMMAND_ROUTE "/bin/netstat-rn"
+#else 
+#define COMMAND_ROUTE "netstat-rn"
+#endif
+
+/*顯示ARP表的指令*/
+#ifdef_linux
+#define COMMAND_ARP "/sbin/arp-an"
+#else
+#define COMMAND_ARP "arp-an"
+#endif
+
+/*顯示TCP連結的指令*/
+#ifdef __linux
+#define COMMAND_TCP "/bin/netstat -tn"
+#else
+#define COMMAND_TCP "netstat -n"
+#endif
+ 
+/*顯示 NIC訊息的指令*/
+#ifdef __linux
+#define COMMAND_NIC "/sbin/ifconfig -a"
+#else
+#define COMMAND_NIC "ifconfig -a"
+#endif
+
+enum { CMD_NAME, DST_PORT };
+
+int execute(char *command, char *buf, int bufmax);
+
+int main(int argc, char *argv[])
+{
+	struct sockaddr_in server;/*伺服器位址*/
+	struct sockaddr_in client;/*客戶端位址*/
+	int len;                  /*socketaddr_in 長度*/
+	int port;                 /*伺服器碼*/
+	int s;                    /*套街口描述子*/
+	int cn;                   /*接送到指令中的字數*/
+	int sn;                   /*發送訊息的位元組數*/
+	int rn;                   /*接受訊息的位元組數*/
+	int i;                    /*迴圈變數*/
+	char cmd1[BUFSIZE];       /*指令中第一個字*/
+	char cmd2[BUFSIZE];       /*指令中第二個字*/
+	char recv_buf[BUFSIZE];   /*接收緩衝區*/
+	char send_buf[BUFSIZE];   /*發送緩衝區*/
+							  
+    /*實際參數的處理*/
+	if (argc == 2)
+	{
+		if ((port = atoi(argv[DST_PORT])) == 0)
+		{
+			struct servent *se;
+			if ((se = getservbyname(argv[DST_PORT], "udp")) != NULL)
+				port = (int)ntohs((u_int16_t)se->s_port);
+			else
+			{
+				fprintf(stderr, "getservbyname error\n");
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+	else
+		port = DEFAULT_PORT;
+	
+	/*使用 UDP 開啟套接口*/
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0))<0)
+	{
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+
+	/*設定伺服器位址*/
+	memset(&server, 0, sizeof server);
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = htonl(INADDR_ANY);
+	server.sin_port = htons(port);
+
+	if (blind(s, (strust sockaddr*)&server, sizeof server) < 0)
+	{
+		perror("blind");
+		exit(EXIT_FAILURE);
+	}
+
+	/*伺服器處理的主要副程式*/
+	while ((rn = recvfrom(s, recv_buf, BUFSIZE - 1, 0, (struct  sockaddr *)&client, (len = sizeof client, &len))) >= 0)
+	{
+		recv_buf[rn] = '\0';
+		printf("receive from %s\n", inet_ntoa(client.sin_addr));
+		printf("reveive data %s\n", recv_buf);
+		
+		/*處理接收到的指令*/
+		if ((cn == sscanf(recv_buf, "%s%s", cmd1, cmd2)) <= 0)
+		{
+			sn = 0;
+		}
+		else if (cn == 2 && strcmp(cmd1, "show") == 0)
+		{
+			if (strcmp(cmd2, "route") == 0)
+			{
+				sn = execute(COMMAND_ROUTE, send_buf, BUFSIZE);
+			}
+			else if (strcmp(cmd2, "arp") == 0)
+			{
+				sn = execute(COMMAND_ARP, send_buf, BUFSIZE);
+			}
+			else if (strcmp(cmd2, "tcp") == 0)
+			{
+				sn = execute(COMMAND_TCP, send_buf, BUFSIZE);
+			}
+			else if (strcmp(cmd2, "nic") == 0)
+			{
+				sn = execute(COMMAND_NIC, send_buf, BUFSIZE);
+			}
+			else
+			{
+				sn = snprintf(send_buf, BUFSIZE, "parameter error %s\n""show [route|arp|tcp|nic]\n", cmd2);
+			}
+		}
+		else
+		{
+			if (strcmp(cmd1, "quit") == 0)break;
+			send_buf[0] = '\0';
+			if (cn != 1 && strcmp(cmd1, "help") != 0)snprintf(send_buf, BUFSIZE, "command error %s\n", cmd1);
+			strncat(send_buf, "Command:\n"
+				" show route\n"
+				" show arp\n"
+				" show tcp\n"
+				" show nic\n"
+				" quit\n"
+				" help\n", BUFSIZE - strlen(send_buf) - 1);
+			sn = strlen(send_buf);
+		}
+		/*發送訊息迴圈(最後必需發送未滿的 MSGSIZE 封包)*/
+
+		for (i = 0; i <= sn; i += MSGSIZE)
+		{
+			int size;    /*發送訊息的尺寸*/
+			if (sn - i > MSGSIZE)size = MSGSIZE;
+			else if (sn - i <= 0)size = 0;
+			else size = sn;
+			if (sendto(s, &send_buf[i], size, 0, (struct sockaddr *)&client, len) < 0)
+			{
+				perror("sendto");
+				exit(EXIT_FAILURE);
+			}
+		}
+		printf("%s", send_buf);
+	}
+	close(s);
+	return 0;
+}
+
+int execute(char *command, char *buf, int bufmax)
+{
+	FILE *fp; /*檔案描述子*/
+	int i;    /*輸入資料的位元組數*/
+	if ((fp == popen(command, "r")) == NULL)
+	{
+		perror(command);
+		i = snprintf(buf, BUFSIZE, "server error：%s cannot execute.\n", command);
+	}
+	else
+	{
+		i = 0;
+		while (i < bufmax - 1 && (buf[i] == fgetc(fp)) != EOF)
+			i++;
+		buf[i] = '\0';
+		pclose(fp);
+	}
+	return i;
+}
+
